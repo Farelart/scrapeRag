@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { pollCommits } from "~/lib/github";
+import { indexGithubRepo } from "~/lib/github-loader";
 
 export const projectRouter = createTRPCRouter({
   createProject: protectedProcedure
@@ -12,6 +14,9 @@ export const projectRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.user.userId) {
+        throw new Error("User not authenticated");
+      }
       const project = await ctx.db.project.create({
         data: {
           githubUrl: input.githubUrl,
@@ -24,7 +29,17 @@ export const projectRouter = createTRPCRouter({
         },
       });
 
-      await pollCommits(project.id);
+      try {
+        await indexGithubRepo(
+          project.id,
+          input.githubUrl,
+          input.githubToken ?? "",
+        );
+        await pollCommits(project.id);
+      } catch (error) {
+        // Log the embedding error but don't fail the project creation
+        console.error("Failed to generate embeddings:", error);
+      }
 
       return project;
     }),
@@ -47,10 +62,27 @@ export const projectRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      pollCommits(input.projectId).then().catch(console.error);
       return await ctx.db.commit.findMany({
         where: {
           projectId: input.projectId,
         },
       });
     }),
+    saveAnswer: protectedProcedure.input(z.object({
+      projectId: z.string(),
+      question: z.string(),
+      answer: z.string(),
+      filesReferences: z.any()
+  })).mutation(async ({ ctx, input }) => {
+      return await ctx.db.question.create({
+          data: {
+              answer: input.answer,
+              filesReferences: input.filesReferences,
+              projectId: input.projectId,
+              question: input.question,
+              userId: ctx.user.userId!
+          }
+      })
+  }),
 });

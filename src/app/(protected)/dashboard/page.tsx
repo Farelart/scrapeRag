@@ -5,13 +5,23 @@ import { ExternalLink, Github } from "lucide-react";
 import useProject from "~/hooks/use-project";
 import Link from "next/link";
 import CommitLog from "./commit-log";
+import AskQuestionCard from "./ask-question-card";
 
 export default function DashboardPage() {
   const user = useUser();
   const { project } = useProject();
+
+  if (!user || !project) {
+    return (
+      <div className="flex min-h-[200px] items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-y-4">
         {/* github link */}
         <div className="w-fit rounded-md bg-primary px-4 py-3">
           <div className="flex items-center">
@@ -41,8 +51,8 @@ export default function DashboardPage() {
       </div>
       <div className="mt-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
-          {/* <AskQuestionCard></AskQuestionCard>
-          <MeetingCard></MeetingCard> */}
+          <AskQuestionCard></AskQuestionCard>
+          {/* <MeetingCard></MeetingCard> */} 
         </div>
       </div>
       <div className="mt-8"></div>
